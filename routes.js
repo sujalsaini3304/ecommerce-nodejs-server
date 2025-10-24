@@ -2,8 +2,11 @@ import express from "express";
 import dotenv from "dotenv";
 import bcrypt from "bcryptjs";
 import connectToMongoDB from "./db/config.js";
-import { User } from "./model/model.js";
+import { ProductCategory, User } from "./model/model.js";
 import jwt from "jsonwebtoken";
+import cloudinary from "./cloudinary.js";
+import { upload } from "./upload.js";
+import streamifier from "streamifier";
 
 dotenv.config({
   path: ".env",
@@ -11,6 +14,93 @@ dotenv.config({
 
 connectToMongoDB();
 const router = express.Router();
+
+router.get("/product/category", async (req, res) => {
+  try {
+    const dbResponse = await ProductCategory.find({});
+
+    if (!dbResponse) {
+      return res.status(404).json({
+        message: "No Product category.",
+        data: [],
+      });
+    }
+
+    return res.status(200).json({
+      message: "Product category fetched successfully.",
+      data: dbResponse,
+    });
+  } catch (error) {
+    console.log(error);
+    return res.status(500).json({
+      message: "Server error.",
+      data: [],
+    });
+  }
+});
+
+router.post(
+  "/create/product/category",
+  upload.single("file"),
+  async (req, res) => {
+    try {
+      const { category } = req.body;
+
+      if (!category) {
+        return res.status(400).json({
+          message: "Product category is required.",
+          status: 400,
+        });
+      }
+
+      if (!req.file) {
+        return res.status(400).json({ message: "No file uploaded" });
+      }
+
+      const streamUpload = (buffer) => {
+        return new Promise((resolve, reject) => {
+          const stream = cloudinary.uploader.upload_stream(
+            { folder: `shophub/data/website/productCategory` },
+            (error, result) => {
+              if (result) {
+                resolve(result);
+              } else {
+                reject(error);
+              }
+            }
+          );
+          streamifier.createReadStream(buffer).pipe(stream);
+        });
+      };
+
+      const result = await streamUpload(req.file.buffer);
+
+      if (!result) {
+        return res.status(500).json({
+          message: "Failed to upload file to Cloudinary",
+          status: 500,
+        });
+      }
+
+      const dbResponse = await ProductCategory.create({
+        category: category,
+        image_url: result.secure_url,
+        image_public_id: result.public_id,
+      });
+
+      return res.status(200).json({
+        message: "Product category created successfully.",
+        data: dbResponse,
+      });
+    } catch (error) {
+      console.error(error);
+      return res.status(500).json({
+        message: "Product category creation failed.",
+        error: error.message || error,
+      });
+    }
+  }
+);
 
 router.post("/create/user", async (req, res) => {
   try {

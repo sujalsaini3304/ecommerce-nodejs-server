@@ -8,16 +8,17 @@ dotenv.config({
   path: ".env",
 });
 
-const app = express();
 // app.use(cors({
-//   origin: "http://localhost:3000", 
+//   origin: "http://localhost:3000",
 //   methods: ["GET", "POST", "PUT", "DELETE"],
 //   credentials: true // if you want to send cookies
 // }));
+const app = express();
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use("/api/auth/", router);
+app.use("/api/admin/", router);
 app.use("/api/protected/", middleware, router);
 app.get("/", (req, res) => {
   res.status(200).json({

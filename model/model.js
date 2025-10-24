@@ -9,6 +9,17 @@ const userSchema = mongoose.Schema(
   { timestamps: true }
 );
 
-const User = mongoose.models.User || mongoose.model("User", userSchema);
+const productCategorySchema = mongoose.Schema(
+  {
+    category: { type: String, required: true },
+    image_url: { type: String, required: true},
+    image_public_id: { type: String, required: true},
+  },
+  { timestamps: true }
+);
 
-export { User };
+const User = mongoose.models.User || mongoose.model("User", userSchema);
+const ProductCategory = mongoose.models.ProductCategory || mongoose.model("ProductCategory", productCategorySchema);
+
+export { User , ProductCategory };
+
