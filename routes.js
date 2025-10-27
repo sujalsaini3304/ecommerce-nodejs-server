@@ -2,7 +2,7 @@ import express from "express";
 import dotenv from "dotenv";
 import bcrypt from "bcryptjs";
 import connectToMongoDB from "./db/config.js";
-import { ProductCategory, User } from "./model/model.js";
+import { ProductCategory, User, Product } from "./model/model.js";
 import jwt from "jsonwebtoken";
 import cloudinary from "./cloudinary.js";
 import { upload } from "./upload.js";
@@ -14,6 +14,127 @@ dotenv.config({
 
 connectToMongoDB();
 const router = express.Router();
+
+router.post(
+  "/create/product",
+  upload.fields([
+    { name: "image_base", maxCount: 1 },
+    { name: "images", maxCount: 5 },
+  ]),
+  async (req, res) => {
+    try {
+      const {
+        category,
+        product_name,
+        product_price,
+        product_description,
+        product_quantity,
+        product_colour = "N/A",
+        product_size_available,
+        product_tags,
+        product_discount_percentage,
+        product_length = 0,
+        product_breadth = 0,
+        product_height = 0,
+        product_weight = 0,
+        product_like_count = 0,
+        product_rating = 0.0,
+        is_available = true,
+      } = req.body;
+
+      if (!req.files || !req.files.image_base) {
+        return res.status(400).json({ message: "Base image is required!" });
+      }
+
+      const baseImage = req.files.image_base[0];
+      const baseUpload = await cloudinary.uploader.upload(
+        `data:${baseImage.mimetype};base64,${baseImage.buffer.toString(
+          "base64"
+        )}`,
+        { folder: `shophub/data/website/products/${product_name}` }
+      );
+
+      let productImages = [];
+      if (req.files.images) {
+        for (const img of req.files.images) {
+          const uploadRes = await cloudinary.uploader.upload(
+            `data:${img.mimetype};base64,${img.buffer.toString("base64")}`,
+            { folder: `shophub/data/website/products/${product_name}` }
+          );
+          productImages.push({
+            url: uploadRes.secure_url,
+            public_id: uploadRes.public_id,
+          });
+        }
+      }
+
+      const newProduct = await Product.create({
+        category,
+        image_url: baseUpload.secure_url,
+        image_public_id: baseUpload.public_id,
+
+        product_images: productImages,
+
+        product_name,
+        product_price,
+        product_description,
+        product_quantity,
+        product_colour,
+        product_discount_percentage,
+        product_length,
+        product_breadth,
+        product_height,
+        product_weight,
+        product_like_count,
+        is_available,
+        product_rating,
+
+        product_size_available: product_size_available
+          ? product_size_available.split(",")
+          : [],
+
+        product_tags: product_tags ? product_tags.split(",") : [],
+      });
+
+      res.status(201).json({
+        success: true,
+        message: "Product created successfully!",
+        product: newProduct,
+      });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to create product",
+        error: error.message,
+      });
+    }
+  }
+);
+
+router.get("/product", async (req, res) => {
+  try {
+    const dbResponse = await Product.find({});
+
+    if (!dbResponse) {
+      return res.status(404).json({
+        message: "No Product is there.",
+        data: [],
+      });
+    }
+
+    return res.status(200).json({
+      message: "Products fetched successfully.",
+      data: dbResponse,
+    });
+  } catch (error) {
+    console.log(error);
+    return res.status(500).json({
+      message: "Server error.",
+      data: [],
+    });
+  }
+});
 
 router.get("/product/category", async (req, res) => {
   try {
